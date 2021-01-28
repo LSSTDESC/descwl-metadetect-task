@@ -13,7 +13,7 @@ Export the Butler repository for convenience
 
 Run the task using the example command:
 
-`pipetask run -t lsstdesc.pipe.task.metadetection.MetadetectTask -b $REPO --input HSC/runs/RC2/v21_0_0_rc1 --output u/username/mdetTest -d "skymap='hsc_rings_v1' AND tract=9615 AND patch=45" --register-dataset-types`
+`pipetask run -t lsstdesc.pipe.task.metadetection.MetadetectTask -b $REPO --input HSC/runs/RC2/v21_0_0_rc1 --output u/$USER/mdetTest -d "skymap='hsc_rings_v1' AND tract=9615 AND patch=45" --register-dataset-types`
 
 Note:
 
@@ -23,6 +23,6 @@ Note:
 
 To check if the run is successful:
 
-`butler query-datasets $REPO --collections u/username/* metadetectObj`
+`butler query-datasets $REPO --collections u/$USER/* metadetectObj`
 
-The data products will be stored in sub-folder within `$REPO/u/username/mdetTest` with a timestamp.
+The data products will be stored in sub-folder within `$REPO/u/$USER/mdetTest` with a timestamp.

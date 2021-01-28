@@ -53,3 +53,12 @@ class MetadetectTask(pipeBase.PipelineTask):
         import pandas as pd
         df = pd.DataFrame([idx for idx, _  in enumerate(calExpList)])
         return pipeBase.Struct(catalog=df)
+
+    def runQuantum(self, butlerQC: pipeBase.ButlerQuantumContext,
+                         inputRefs: pipeBase.InputQuantizedConnection,
+                         outputRefs: pipeBase.OutputQuantizedConnection):
+
+        inputs = butlerQC.get(inputRefs)
+        outputs = self.run(**inputs)
+        butlerQC.put(outputs, outputRefs)
+
