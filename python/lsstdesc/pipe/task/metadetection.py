@@ -1,6 +1,12 @@
-# import lsst.daf.persistence as dafPersist
+# import lsst.daf.persistence as dafPersist  # Gen2 version
+from __future__ import annotations
+import typing
+
 import lsst.pipe.base as pipeBase
 import lsst.pipe.base.connectionTypes as cT
+from lsst.pipe.base.struct import Struct
+from lsst.pipe.tasks.coaddBase import makeSkyInfo
+import lsst.utils
 
 
 class MetadetectConnections(pipeBase.PipelineTaskConnections,
@@ -23,11 +29,18 @@ class MetadetectConnections(pipeBase.PipelineTaskConnections,
         storageClass="SkyMap",
         dimensions=("skymap",),
     )
+    # This is an output catalog that is not (yet) used in this skeleton
     catalog = cT.Output(
         doc=("Output catalog"),
         name='metadetectObj',
         storageClass="DataFrame",
         dimensions=("tract", "patch", "skymap"),
+    )
+    coadd = cT.Output(
+        doc=("Coadded image"),
+        name="ngmixCoadd",
+        storageClass="ExposureF",
+        dimensions=("tract", "patch", "skymap", "visit", "instrument")
     )
     # Come back and apply jointcal/fgcm later to the calexp s.
 
@@ -47,18 +60,44 @@ class MetadetectTask(pipeBase.PipelineTask):
     _DefaultName = "metadetect"
 
     # @pipeBase.timeMethod
-    def run(self, calExpList, skyMap):
-        print(len(calExpList))
-        print(skyMap)
-        import pandas as pd
-        df = pd.DataFrame([idx for idx, _  in enumerate(calExpList)])
-        return pipeBase.Struct(catalog=df)
+    def run(self, calExpList: typing.List[lsst.afw.image.ExposureF], coaddWcs: lsst.afw.geom.SkyWcs) -> pipeBase.Struct:
 
+        print(len(calExpList))  # checking if we got something here
+
+        # We need to explicitly get the images since we deferred loading.
+        # The line below is just an example illustrating this.
+        # We should preferably get them sequentially instead of loading all.
+        calExpList = [calexp.get() for calexp in calExpList]
+
+        # Erin Sheldon has to fill in the interfaces here and
+        # replace calExpList[0] with the coadd.
+        coaddedImage = calExpList[0]
+
+        return pipeBase.Struct(coadd=coaddedImage)
+
+    # @lsst.utils.inheritDoc(pipeBase.PipelineTask)
     def runQuantum(self, butlerQC: pipeBase.ButlerQuantumContext,
-                         inputRefs: pipeBase.InputQuantizedConnection,
-                         outputRefs: pipeBase.OutputQuantizedConnection):
+                   inputRefs: pipeBase.InputQuantizedConnection,
+                   outputRefs: pipeBase.OutputQuantizedConnection):
+        """Construct warps and then coadds
 
+        Notes
+        -----
+
+        PipelineTask (Gen3) entry point to warp. This method is analogous to
+        `runDataRef`. See lsst.pipe.tasks.makeCoaddTempExp.py for comparison.
+        """
+        # Read in the inputs via the butler
         inputs = butlerQC.get(inputRefs)
-        outputs = self.run(**inputs)
-        butlerQC.put(outputs, outputRefs)
+
+        # Process the skyMap to WCS and other useful sky information
+        skyMap = inputs.pop("skyMap")  # skyInfo below will contain this skyMap
+        quantumDataId = butlerQC.quantum.dataId
+        skyInfo = makeSkyInfo(skyMap, tractId=quantumDataId["tract"], patchId=quantumDataId["patch"])
+
+        # Run the warp and coaddition code
+        outputs = self.run(inputs["calExpList"], coaddWcs=skyInfo.wcs)
+
+        # Persist the results via the butler
+        butlerQC.put(outputs.coadd, outputRefs.coadd)
 
