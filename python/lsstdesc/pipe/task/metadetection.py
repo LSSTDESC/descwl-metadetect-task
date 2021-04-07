@@ -5,6 +5,7 @@ import typing
 import lsst.pipe.base as pipeBase
 import lsst.pipe.base.connectionTypes as cT
 from lsst.pipe.base.struct import Struct
+import lsst.afw.table as afwTable
 from lsst.pipe.tasks.coaddBase import makeSkyInfo
 import lsst.utils
 
@@ -60,7 +61,7 @@ class MetadetectTask(pipeBase.PipelineTask):
     _DefaultName = "metadetect"
 
     # @pipeBase.timeMethod
-    def run(self, calExpList: typing.List[lsst.afw.image.ExposureF], coaddWcs: lsst.afw.geom.SkyWcs) -> pipeBase.Struct:
+    def run(self, calExpList: typing.List[lsst.afw.image.ExposureF], skyInfo: pipeBase.Struct) -> pipeBase.Struct:
 
         print(len(calExpList))  # checking if we got something here
 
@@ -69,11 +70,19 @@ class MetadetectTask(pipeBase.PipelineTask):
         # We should preferably get them sequentially instead of loading all.
         calExpList = [calexp.get() for calexp in calExpList]
 
+        # The destination WCS and BBox can be accessed from skyInfo
+        coaddWcs = skyInfo.wcs
+        coaddBBox = skyInfo.bbox
+
         # Erin Sheldon has to fill in the interfaces here and
         # replace calExpList[0] with the coadd.
         coaddedImage = calExpList[0]
 
-        return pipeBase.Struct(coadd=coaddedImage)
+        # Create an empty catalogue with minimal schema
+        schema = afwTable.SourceTable.makeMinimalSchema()
+        table = afwTable.SourceTable.make(schema)
+        cat = afwTable.SourceCatalog(table)
+        return pipeBase.Struct(coadd=coaddedImage, catalog=cat)
 
     # @lsst.utils.inheritDoc(pipeBase.PipelineTask)
     def runQuantum(self, butlerQC: pipeBase.ButlerQuantumContext,
@@ -96,7 +105,7 @@ class MetadetectTask(pipeBase.PipelineTask):
         skyInfo = makeSkyInfo(skyMap, tractId=quantumDataId["tract"], patchId=quantumDataId["patch"])
 
         # Run the warp and coaddition code
-        outputs = self.run(inputs["calExpList"], coaddWcs=skyInfo.wcs)
+        outputs = self.run(inputs["calExpList"], skyInfo=skyInfo)
 
         # Persist the results via the butler
         butlerQC.put(outputs.coadd, outputRefs.coadd)
