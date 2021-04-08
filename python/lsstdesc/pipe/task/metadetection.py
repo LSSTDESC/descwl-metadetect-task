@@ -68,7 +68,7 @@ class MetadetectTask(pipeBase.PipelineTask):
         # We need to explicitly get the images since we deferred loading.
         # The line below is just an example illustrating this.
         # We should preferably get them sequentially instead of loading all.
-        calExpList = [calexp.get() for calexp in calExpList]
+        calExpList = [calexp.get() for calexp in calExpList[:10]]
 
         # The destination WCS and BBox can be accessed from skyInfo
         coaddWcs = skyInfo.wcs
