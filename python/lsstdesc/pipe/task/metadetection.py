@@ -41,7 +41,7 @@ class MetadetectConnections(pipeBase.PipelineTaskConnections,
         doc=("Coadded image"),
         name="ngmixCoadd",
         storageClass="ExposureF",
-        dimensions=("tract", "patch", "skymap", "visit", "instrument")
+        dimensions=("tract", "patch", "skymap", "instrument")
     )
     # Come back and apply jointcal/fgcm later to the calexp s.
 
