@@ -33,13 +33,13 @@ class MetadetectConnections(pipeBase.PipelineTaskConnections,
     # This is an output catalog that is not (yet) used in this skeleton
     catalog = cT.Output(
         doc=("Output catalog"),
-        name='metadetectObj',
+        name='metadetectObjV1',
         storageClass="DataFrame",
         dimensions=("tract", "patch", "skymap"),
     )
     coadd = cT.Output(
         doc=("Coadded image"),
-        name="ngmixCoadd",
+        name="coaddsInCellsV1",
         storageClass="ExposureF",
         dimensions=("tract", "patch", "skymap", "band", "instrument")
     )
@@ -68,7 +68,10 @@ class MetadetectTask(pipeBase.PipelineTask):
         # We need to explicitly get the images since we deferred loading.
         # The line below is just an example illustrating this.
         # We should preferably get them sequentially instead of loading all.
-        calExpList = [calexp.get() for calexp in calExpList[:10]]
+        # calExpList = [calexp.get() for calexp in calExpList[:10]]
+
+        for calexp in calExpList:
+            print('band:', calexp.dataId['band'])
 
         # The destination WCS and BBox can be accessed from skyInfo
         coaddWcs = skyInfo.wcs
@@ -76,7 +79,7 @@ class MetadetectTask(pipeBase.PipelineTask):
 
         # Erin Sheldon has to fill in the interfaces here and
         # replace calExpList[0] with the coadd.
-        coaddedImage = calExpList[0]
+        coaddedImage = calExpList[0].get()
 
         # Create an empty catalogue with minimal schema
         schema = afwTable.SourceTable.makeMinimalSchema()
