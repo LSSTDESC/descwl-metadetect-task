@@ -25,4 +25,13 @@ To check if the run is successful:
 
 `butler query-datasets $REPO --collections u/$USER/* metadetectObj`
 
-The data products will be stored in sub-folder within `$REPO/u/$USER/mdetTest` with a timestamp.
+The data products will be stored in sub-folder within `$REPO/u/$USER/mdetTest` with a timestamp. You can get the outputs via the Butler as in the following example:
+
+```
+ from lsst.daf.butler import Butler
+ import os
+ REPO = os.environ['REPO']
+ USER = os.environ['USER']
+ butler = Butler(REPO, collections=f'u/{USER}/mdetTest')
+ dataId = {'tract': 9615, 'patch':54, 'skymap':'hsc_rings_v1'}
+ metadetectObj = butler.get('metadetectObj', dataId=dataId)
