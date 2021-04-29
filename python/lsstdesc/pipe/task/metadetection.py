@@ -10,6 +10,7 @@ import lsst.afw.image as afwImage
 from lsst.pipe.tasks.coaddBase import makeSkyInfo
 import lsst.utils
 import lsst.geom as geom
+from lsst.pex.config import Field
 from descwl_coadd.coadd import MultiBandCoaddsDM
 
 BANDS = ['g', 'r', 'i', 'z']
@@ -63,14 +64,14 @@ class MetadetectConfig(pipeBase.PipelineTaskConfig,
                        pipelineConnections=MetadetectConnections):
     """ Configuration parameters for the `MetadetectTask`.
     """
-    # seed = Field(
-    #     dtype=int,
-    #     default=0,
-    #     optional=False,
-    #     doc='seed for the random number generator',
-    # )
-    #
-    pass
+    seed = Field(
+        dtype=int,
+        # default=0,
+        optional=False,
+        doc='seed for the random number generator',
+    )
+
+    # pass
 
 
 class MetadetectTask(pipeBase.PipelineTask):
@@ -86,9 +87,10 @@ class MetadetectTask(pipeBase.PipelineTask):
             skyInfo: pipeBase.Struct) -> pipeBase.Struct:
         # import pdb
 
-        print(len(calExpList))  # checking if we got something here
+        print('seed:', self.config.seed)
+        print('num exp:', len(calExpList))  # checking if we got something here
 
-        rng = np.random.RandomState()
+        rng = np.random.RandomState(self.config.seed)
 
         # We need to explicitly get the images since we deferred loading.
         # The line below is just an example illustrating this.
