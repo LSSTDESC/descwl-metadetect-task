@@ -2,9 +2,11 @@
 from __future__ import annotations
 import typing
 
+import numpy as np
 import lsst.pipe.base as pipeBase
 import lsst.pipe.base.connectionTypes as cT
 import lsst.afw.table as afwTable
+import lsst.afw.image as afwImage
 from lsst.pipe.tasks.coaddBase import makeSkyInfo
 import lsst.utils
 import lsst.geom as geom
@@ -61,7 +63,13 @@ class MetadetectConfig(pipeBase.PipelineTaskConfig,
                        pipelineConnections=MetadetectConnections):
     """ Configuration parameters for the `MetadetectTask`.
     """
-
+    # seed = Field(
+    #     dtype=int,
+    #     default=0,
+    #     optional=False,
+    #     doc='seed for the random number generator',
+    # )
+    #
     pass
 
 
@@ -79,6 +87,8 @@ class MetadetectTask(pipeBase.PipelineTask):
         # import pdb
 
         print(len(calExpList))  # checking if we got something here
+
+        rng = np.random.RandomState()
 
         # We need to explicitly get the images since we deferred loading.
         # The line below is just an example illustrating this.
@@ -111,6 +121,7 @@ class MetadetectTask(pipeBase.PipelineTask):
         data = make_inputs(
             explist=calExpList,
             skyInfo=skyInfo,
+            rng=rng,
             num_to_keep=3,
         )
 
@@ -130,6 +141,11 @@ class MetadetectTask(pipeBase.PipelineTask):
         schema = afwTable.SourceTable.makeMinimalSchema()
         table = afwTable.SourceTable.make(schema)
         cat = afwTable.SourceCatalog(table)
+
+        # TODO learn how to save separate coadds for each band. Or we can make this
+        # separate coadd task which is run for each band, then run metadetect on the
+        # coadds separately
+        # TODO learn how to save the noise exp as well
         return pipeBase.Struct(coadd=coadd_obs.coadd_exp, catalog=cat)
 
     # @lsst.utils.inheritDoc(pipeBase.PipelineTask)
@@ -162,7 +178,7 @@ class MetadetectTask(pipeBase.PipelineTask):
         butlerQC.put(outputs.coadd, outputRefs.coadd)
 
 
-def make_inputs(explist, skyInfo, num_to_keep=None):
+def make_inputs(explist, skyInfo, rng, num_to_keep=None):
     """
     TODO noise is just same as exp
     """
@@ -187,7 +203,7 @@ def make_inputs(explist, skyInfo, num_to_keep=None):
             # overlapping
             ntot = len(band_data[band])
             mid = ntot // 2
-            band_data[band] = band_data[band][mid:mid+num_to_keep]
+            band_data[band] = band_data[band][mid:mid + num_to_keep]
             # band_data[band] = band_data[band][:num_to_keep]
 
     # copy data form disk
@@ -196,7 +212,10 @@ def make_inputs(explist, skyInfo, num_to_keep=None):
             band_data[band][i]['exp'] = band_data[band][i]['exp'].get()
 
             # make noise exp here
-            band_data[band][i]['noise_exp'] = band_data[band][i]['exp']
+            band_data[band][i]['noise_exp'] = get_noise_exp(
+                exp=band_data[band][i]['exp'],
+                rng=rng,
+            )
 
     # TODO set BRIGHT bit here for bright stars
 
@@ -215,3 +234,51 @@ def make_inputs(explist, skyInfo, num_to_keep=None):
         'coadd_bbox': skyInfo.bbox,
         'psf_dims': psf_dims,
     }
+
+
+def get_noise_exp(exp, rng):
+    """
+    get a noise image based on the input exposure
+
+    TODO gain correct amplifier-by-amplifier
+
+    Parameters
+    ----------
+    exp: afw.image.ExposureF
+        The exposure upon which to base the noise
+
+    Returns
+    -------
+    noise exposure
+    """
+    signal = exp.image.array
+    variance = exp.variance.array.copy()
+
+    use = np.where(np.isfinite(variance) & np.isfinite(signal))
+
+    gains = [
+        amp.getGain() for amp in exp.getDetector().getAmplifiers()
+    ]
+    mean_gain = np.mean(gains)
+
+    corrected_var = variance[use] - signal[use] / mean_gain
+
+    medvar = np.median(corrected_var)
+
+    noise_image = rng.normal(scale=np.sqrt(medvar), size=signal.shape)
+
+    ny, nx = signal.shape
+    nmimage = afwImage.MaskedImageF(width=nx, height=ny)
+    assert nmimage.image.array.shape == (ny, nx)
+
+    nmimage.image.array[:, :] = noise_image
+    nmimage.variance.array[:, :] = medvar
+    nmimage.mask.array[:, :] = exp.mask.array[:, :]
+
+    noise_exp = afwImage.ExposureF(nmimage)
+    noise_exp.setPsf(exp.getPsf())
+    noise_exp.setWcs(exp.getWcs())
+    noise_exp.setFilterLabel(exp.getFilterLabel())
+    noise_exp.setDetector(exp.getDetector())
+
+    return noise_exp
