@@ -182,7 +182,26 @@ class MetadetectTask(pipeBase.PipelineTask):
 
 def make_inputs(explist, skyInfo, rng, num_to_keep=None):
     """
-    TODO noise is just same as exp
+    make inputs for the coadding code
+
+    Parameters
+    ----------
+    explist: list of ExposureF
+        List of exposures to be coadded
+    skyInfo: dict
+        The skyInfo dict, must have .wcs and .bbox
+    rng: np.random.RandomState
+        Random number generator for noise image generation
+    num_to_keep: int, optional
+        Optionally keep this many exposures
+
+    Returns
+    -------
+    dict with keys
+        'band_data': dict keyed by band
+        'coadd_wcs': DM wcs object
+        'coadd_bbox': DM bbox object
+        'psf_dims': dimensions of psf
     """
 
     band_data = {}
@@ -242,7 +261,8 @@ def get_noise_exp(exp, rng):
     """
     get a noise image based on the input exposure
 
-    TODO gain correct amplifier-by-amplifier
+    TODO gain correct separately in each amplifier, currently
+    averaged
 
     Parameters
     ----------
