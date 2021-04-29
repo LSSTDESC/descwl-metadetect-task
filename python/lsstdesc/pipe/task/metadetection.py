@@ -87,8 +87,8 @@ class MetadetectTask(pipeBase.PipelineTask):
             skyInfo: pipeBase.Struct) -> pipeBase.Struct:
         # import pdb
 
-        print('seed:', self.config.seed)
-        print('num exp:', len(calExpList))  # checking if we got something here
+        self.log.info('seed: %d' % self.config.seed)
+        self.log.info('num exp: %d' % len(calExpList))
 
         rng = np.random.RandomState(self.config.seed)
 
@@ -101,9 +101,8 @@ class MetadetectTask(pipeBase.PipelineTask):
         #     # import numpy as np
         #     # import esutil as eu
         #     import pdb
-        #     print('band:', calexp.dataId['band'])
+        #     self.log.info('band: %s' % calexp.dataId['band'])
         #     calexp = calexp.get()
-        #     # print(calexp.variance.array)
         #     # m = calexp.mask.array
         #     # v = calexp.variance.array
         #     # w = np.where(m == 0)
